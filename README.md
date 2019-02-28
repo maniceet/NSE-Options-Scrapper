@@ -12,9 +12,6 @@ Just run the Script NSEScrapper.py on your terminal and the output csv will be g
 
 Anaconda is preferred, however requirements.txt file is there in the git repo
 
-```
-python3 NSEScrapper.py
-```
 
 ### Installing
 
@@ -28,6 +25,15 @@ source activate <myenv>
 pip install -r requirements.txt
 
 ```
+### Running the script
+
+Open terminal or command line, navigate to the folder where the files are and run
+
+```
+python3 NSEScrapper.py
+
+```
+
 
 ## Authors
 
