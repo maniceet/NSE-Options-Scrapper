@@ -82,9 +82,15 @@ options_dict = {}
 empty_returns = []
 for stock in tqdm(stocks) :
     
-    exp_dates, value = get_expiry_from_option_chain(stock)
-    strike_prices = np.asarray(get_strike_price_from_option_chain(stock, exp_dates[0]))
-    price_index = np.where(strike_prices > value)[0].tolist()
+    try:
+        
+        exp_dates, value = get_expiry_from_option_chain(stock)
+        strike_prices = np.asarray(get_strike_price_from_option_chain(stock, exp_dates[0]))
+        price_index = np.where(strike_prices > value)[0].tolist()
+    
+    except(ValueError, RuntimeError, TypeError, NameError):
+        empty_returns.append(stock)
+        continue
     
     if not price_index:
         empty_returns.append(stock)
@@ -122,5 +128,7 @@ lot_size['SYMBOL'] = lot_size['SYMBOL'].str.strip()
 output2 = pd.merge(output, lot_size, how = 'left', left_on = ['Stock'], right_on = ['SYMBOL'])
 output2.rename(columns = {'UNDERLYING' : 'Stock_Name'}, inplace = True)
 output2.drop(['SYMBOL'], axis = 1, inplace = True)
+output2['LTP*Lot'] = output2['LTP']*output2[output2.columns[5]]
+output2['Price*Lot'] = output2['Underlying_value']*output2[output2.columns[5]]
 output2.to_csv(exp_dates[0]+'list.csv', index = False)
 print(empty_returns)
