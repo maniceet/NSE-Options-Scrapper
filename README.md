@@ -1,8 +1,12 @@
+
+
 # NSE Options Scrapper
 
 The python script will enable you to download Options data for all derivative stocks on NSE.
 It checks the present underlying value and for a call option gets the Last Traded price of the Strike Price higher than Underlying Value
 
+## Updates
+Dependencies on csv files has been removed, the script downloads csv online while it is running and gets the stocsk and lot sizes automatically. Dependency on nsepy package has also been removed.
 
 ## Getting Started
 
