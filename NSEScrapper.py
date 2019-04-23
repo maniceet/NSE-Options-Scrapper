@@ -1,20 +1,26 @@
 #Importing libraries required
 import re
 from datetime import date
-from nsepy import get_history
+#from nsepy import get_history
 import numpy as np
 import pandas as pd
-import datetime 
+import datetime
 from tqdm import tqdm
-#Reading the options list file
-options_list = pd.read_csv('options_list.csv')
-stocks = list(options_list['Symbol'])
+import requests
+import io
+
+#Reading the options list file online
+response = requests.get('http://www.nseindia.com/content/fo/fo_mktlots.csv')
+
+file_object = io.StringIO(response.content.decode('utf-8'))
+lot_size = pd.read_csv(file_object, skiprows=[0,1,2,3], usecols = [0,1,2])
+lot_size.columns = [x.replace(" ", "") for x in lot_size.columns]
+lot_size['Symbol'] = lot_size['Symbol'].str.strip()
+
+
+stocks = list(lot_size['Symbol'])
 stocks = [x.replace('&', '%26') for x in stocks]
 #stocks
-
-#You can change this according to the task at Hand
-start_date = datetime.date.today()-datetime.timedelta(10)
-end_date = datetime.date.today()
 
 import requests
 from bs4 import BeautifulSoup
@@ -57,13 +63,18 @@ def get_expiry_from_option_chain (symbol):
 def get_strike_price_from_option_chain(symbol, expdate):
 
     Base_url = "https://www.nseindia.com/live_market/dynaContent/live_watch/option_chain/optionKeys.jsp?symbol=" + symbol + "&date=" + expdate
-    page = requests.get(Base_url)    
+    #lot_url = "https://www.nseindia.com/live_market/dynaContent/live_watch/get_quote/GetQuoteFO.jsp?underlying=" + symbol + "&instrument=FUTSTK&expiry=" + expdate+"&type=-&strike=-"
+    page = requests.get(Base_url)
+    #lot_page = requests.get(lot_url)
     soup = BeautifulSoup(page.content, 'html.parser')
 
     table_cls_2 = soup.find(id="octable")
     req_row = table_cls_2.find_all('tr')
 
     strike_price_list = []
+    call_volume_list = []
+    put_volume_list = []
+    call_ltp_list = []
 
     for row_number, tr_nos in enumerate(req_row):
 
@@ -72,63 +83,93 @@ def get_strike_price_from_option_chain(symbol, expdate):
             continue
 
         td_columns = tr_nos.find_all('td')
-        strike_price = int(float(BeautifulSoup(str(td_columns[11]), 'html.parser').get_text()))
+        strike_price = float(BeautifulSoup(str(td_columns[11]), 'html.parser').get_text())
+        call_volume_list_html = BeautifulSoup(str(td_columns[3]), 'html.parser').get_text()
+        put_volume_list_html = BeautifulSoup(str(td_columns[19]), 'html.parser').get_text()
+        call_ltp_list_html =  BeautifulSoup(str(td_columns[5]), 'html.parser').get_text()
+        call_ltp_list_html = str.strip(call_ltp_list_html).replace(",", "")
+        
+        num_format = re.compile("^[\-]?[1-9][0-9]*\.?[0-9]+$")
+        
+        if call_volume_list_html == "-":
+            call_volume = 0
+        else:
+            call_volume = int(str.strip(call_volume_list_html).replace(",",""))
+            
+        if put_volume_list_html == "-":
+            
+            put_volume = 0
+        else:
+            put_volume = int(str.strip(put_volume_list_html).replace(",",""))
+        
+        if re.match(num_format, call_ltp_list_html):
+            
+            call_ltp = float(call_ltp_list_html)
+        else:
+            call_ltp = 0
+            
+            
         strike_price_list.append(strike_price)
+        call_volume_list.append(call_volume)
+        put_volume_list.append(put_volume)
+        call_ltp_list.append(call_ltp)
+        
     #soup = BeautifulSoup(lot_page.content, 'html.parser')
     # print (strike_price_list)
-    return strike_price_list
+    return strike_price_list, call_volume_list, put_volume_list, call_ltp_list
 
 options_dict = {}
 empty_returns = []
+
 for stock in tqdm(stocks) :
-    
     try:
         
         exp_dates, value = get_expiry_from_option_chain(stock)
-        strike_prices = np.asarray(get_strike_price_from_option_chain(stock, exp_dates[0]))
+        
+        strike_prices, call_volume_list, put_volume_list, call_ltp_list = \
+                np.asarray(get_strike_price_from_option_chain(stock, exp_dates[0]))
+        
         price_index = np.where(strike_prices > value)[0].tolist()
     
     except(ValueError, RuntimeError, TypeError, NameError):
         empty_returns.append(stock)
         continue
-    
+        
     if not price_index:
         empty_returns.append(stock)
         continue
         
     strike_price = float(strike_prices[price_index[0]])
+    call_ltp_price = call_ltp_list[price_index[0]]
     expiry_date = datetime.datetime.strptime(exp_dates[0], '%d%b%Y')
-    stock_opt = get_history(symbol= stock,
-                        start=start_date,
-                        end= end_date,
-                        option_type="CE",
-                        strike_price= strike_price,
-                        expiry_date= expiry_date)
-    if stock_opt.empty:
-        empty_returns.append(stock)
-        #print(stock + " returned empty dataframe")
-        continue
-        
+
+    call_volume = sum(x for x in call_volume_list)
+    put_volume = sum(x for x in put_volume_list)
+    
     if 'Stock' in options_dict:        
         options_dict['Underlying_value'].append(value)
         options_dict['Strike_price'].append(strike_price)
-        options_dict['LTP'].append(float(stock_opt.iloc[[-1]]['Last']))
+        options_dict['call_LTP'].append(float(call_ltp_price))
         options_dict['Stock'].append(stock)
+        options_dict['call_volume'].append(call_volume)
+        options_dict['put_volume'].append(put_volume)
         
     else:
         options_dict['Stock'] = [stock]
         options_dict['Underlying_value'] = [value]
         options_dict['Strike_price'] = [strike_price]
-        options_dict['LTP'] = [float(stock_opt.iloc[[-1]]['Last'])]
-    #print(stock+" done")
+        options_dict['call_LTP'] = [float(call_ltp_price)]
+        options_dict['call_volume'] = [call_volume]
+        options_dict['put_volume'] = [put_volume]
 
 output = pd.DataFrame(options_dict)
-lot_size = pd.read_csv('lotsize.csv')
-lot_size['SYMBOL'] = lot_size['SYMBOL'].str.strip()
-output2 = pd.merge(output, lot_size, how = 'left', left_on = ['Stock'], right_on = ['SYMBOL'])
-output2.rename(columns = {'UNDERLYING' : 'Stock_Name'}, inplace = True)
-output2.drop(['SYMBOL'], axis = 1, inplace = True)
-output2['LTP*Lot'] = output2['LTP']*output2[output2.columns[5]]
-output2['Price*Lot'] = output2['Underlying_value']*output2[output2.columns[5]]
-output2.to_csv(exp_dates[0]+'list.csv', index = False)
+output2 = pd.merge(output, lot_size, how = 'left', left_on = ['Stock'], right_on = ['Symbol'])
+
+output2.rename(columns = {'DerivativesonIndividualSecurities' : 'Stock_Name',
+                         'Underlying_value': 'Stock_Price'}, inplace = True)
+output2.drop(['Symbol'], axis = 1, inplace = True)
+output2['call_LTP*Lot'] = output2['call_LTP']*output2[output2.columns[7]]
+output2['Price*Lot'] = output2['Stock_Price']*output2[output2.columns[7]]
+print(output2.shape)
 print(empty_returns)
+output2.to_csv(exp_dates[0]+'list.csv', index = False)
