@@ -20,7 +20,6 @@ lot_size['Symbol'] = lot_size['Symbol'].str.strip()
 
 stocks = list(lot_size['Symbol'])
 stocks = [x.replace('&', '%26') for x in stocks]
-#stocks
 
 import requests
 from bs4 import BeautifulSoup
@@ -131,7 +130,7 @@ for stock in tqdm(stocks) :
         
         price_index = np.where(strike_prices > value)[0].tolist()
     
-    except(ValueError, RuntimeError, TypeError, NameError):
+    except(ValueError, RuntimeError, TypeError, NameError, AttributeError):
         empty_returns.append(stock)
         continue
         
