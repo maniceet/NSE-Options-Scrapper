@@ -234,7 +234,7 @@ qtconsole==4.3.1
 QtPy==1.4.1
 ratelim==0.1.6
 regex==2017.4.5
-requests==2.18.4
+requests==2.21.0
 rsa==3.4.2
 ruamel-yaml==0.15.35
 s3transfer==0.1.13
@@ -281,7 +281,7 @@ traitlets==4.3.2
 typing==3.6.4
 ujson==1.35
 unicodecsv==0.14.1
-urllib3==1.22
+urllib3==1.24.2
 wcwidth==0.1.7
 webencodings==0.5.1
 Werkzeug==0.14.1
