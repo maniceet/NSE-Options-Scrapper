@@ -162,6 +162,7 @@ for stock in tqdm(stocks) :
         options_dict['put_volume'] = [put_volume]
 
 output = pd.DataFrame(options_dict)
+output['Stock'] = [x.replace('%26', '&') for x in output['Stock']]
 output2 = pd.merge(output, lot_size, how = 'left', left_on = ['Stock'], right_on = ['Symbol'])
 
 output2.rename(columns = {'DerivativesonIndividualSecurities' : 'Stock_Name',
