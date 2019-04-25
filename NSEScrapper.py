@@ -1,7 +1,7 @@
 #Importing libraries required
 import re
 from datetime import date
-#from nsepy import get_history
+from nsepy import get_history
 import numpy as np
 import pandas as pd
 import datetime
@@ -25,6 +25,10 @@ import requests
 from bs4 import BeautifulSoup
 
 # Get all get possible expiry date details for the given script
+import requests
+from bs4 import BeautifulSoup
+
+# Get all get possible expiry date details for the given script
 def get_expiry_from_option_chain (symbol):
 
     # Base url page for the symbole with default expiry date
@@ -40,7 +44,7 @@ def get_expiry_from_option_chain (symbol):
     #print(underlying_value)
     underlying_value = re.sub(r'<.*?>', '', underlying_value)
     #print(underlying_value)
-    underlying_value = float(re.sub(r'[^\d.]+', '', underlying_value))
+    underlying_value = float(re.sub(r'(?=[A-Za-z]).*(?=[A-Za-z])[^\d.]+', '', underlying_value))
     #underlying_value = soup.get_text(underlying_value)
     # Convert as rows based on tag option
     expiry_rows = locate_expiry_point.find_all('option')
@@ -88,7 +92,7 @@ def get_strike_price_from_option_chain(symbol, expdate):
         call_ltp_list_html =  BeautifulSoup(str(td_columns[5]), 'html.parser').get_text()
         call_ltp_list_html = str.strip(call_ltp_list_html).replace(",", "")
         
-        num_format = re.compile("^[\-]?[1-9][0-9]*\.?[0-9]+$")
+        num_format = re.compile("^[\-]?[0-9][0-9]*\.?[0-9]+$")
         
         if call_volume_list_html == "-":
             call_volume = 0
@@ -119,7 +123,6 @@ def get_strike_price_from_option_chain(symbol, expdate):
 
 options_dict = {}
 empty_returns = []
-
 for stock in tqdm(stocks) :
     try:
         
@@ -130,7 +133,7 @@ for stock in tqdm(stocks) :
         
         price_index = np.where(strike_prices > value)[0].tolist()
     
-    except(ValueError, RuntimeError, TypeError, NameError, AttributeError):
+    except(ValueError, RuntimeError, TypeError, NameError):
         empty_returns.append(stock)
         continue
         
@@ -139,9 +142,16 @@ for stock in tqdm(stocks) :
         continue
         
     strike_price = float(strike_prices[price_index[0]])
-    call_ltp_price = call_ltp_list[price_index[0]]
+    call_ltp_price = float(call_ltp_list[price_index[0]])
     expiry_date = datetime.datetime.strptime(exp_dates[0], '%d%b%Y')
-
+    '''
+    stock_opt = get_history(symbol= stock,
+                        start=start_date,
+                        end= end_date,
+                        option_type="CE",
+                        strike_price= strike_price,
+                        expiry_date= expiry_date)
+    '''
     call_volume = sum(x for x in call_volume_list)
     put_volume = sum(x for x in put_volume_list)
     
